@@ -20,6 +20,33 @@ Particles are joined the Arabic way: `w el beit` → `والبيت`.
 
 ## Install
 
+### Download (easiest)
+
+1. Download **FrancoBar.zip** from the [latest release](https://github.com/moustafahelmi96/FrancoBar/releases/latest).
+2. Unzip it and drag **FrancoBar.app** into **Applications**.
+3. Open it. The first time, macOS will block it (see below).
+
+Works on macOS 13+, on both Apple silicon and Intel Macs.
+
+#### Opening it the first time
+
+FrancoBar isn't signed with a paid Apple Developer ID, so macOS says it “can't be opened” or “could not verify” it.
+This only happens once:
+
+1. Try to open FrancoBar, then click **Done** (or **OK**) in the warning.
+2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+3. Next to *“FrancoBar was blocked…”*, click **Open Anyway**, then confirm with your password or Touch ID.
+
+Or, from Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/FrancoBar.app
+```
+
+After that it opens normally. Look for the **ع** icon in the menu bar; everything else is in there.
+
+### Build from source
+
 Needs macOS 13+ and the Xcode command line tools (`xcode-select --install`).
 
 ```bash
@@ -28,15 +55,16 @@ cd FrancoBar
 ./build.sh install
 ```
 
-`./build.sh` alone builds `FrancoBar.app` in the repo folder; `install` also copies it to `/Applications` and launches it.
-The **ع** icon in the menu bar has everything else.
+- `./build.sh` builds `FrancoBar.app` in the repo folder.
+- `./build.sh install` also copies it to `/Applications` and launches it.
+- `./build.sh release` makes a universal build zipped as `FrancoBar.zip`.
 
 ### Accessibility permission
 
 “Enter pastes” and “Convert selected text” send ⌘C / ⌘V for you, which macOS only allows after you grant FrancoBar
 **Accessibility** access (System Settings → Privacy & Security → Accessibility). The rest of the app works without it.
 
-The build is signed locally (ad-hoc), so after rebuilding you may need to switch FrancoBar off and on again in that list.
+The app is signed locally (ad-hoc), so after updating or rebuilding you may need to switch FrancoBar off and on again in that list.
 
 ## How conversion works
 
