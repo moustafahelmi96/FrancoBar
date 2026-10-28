@@ -46,6 +46,10 @@ final class Settings {
         get { d.object(forKey: "autoCopy") as? Bool ?? true }
         set { d.set(newValue, forKey: "autoCopy") }
     }
+    var doubleCommand: Bool {
+        get { d.object(forKey: "doubleCommand") as? Bool ?? true }
+        set { d.set(newValue, forKey: "doubleCommand") }
+    }
     var pasteOnEnter: Bool {
         get { d.object(forKey: "pasteOnEnter") as? Bool ?? true }
         set { d.set(newValue, forKey: "pasteOnEnter") }

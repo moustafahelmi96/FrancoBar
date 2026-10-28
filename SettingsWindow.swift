@@ -95,6 +95,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         pause.widthAnchor.constraint(equalToConstant: 180).isActive = true
         let pauseRow = NSStackView(views: [pause, pauseLabel])
 
+        let doubleCommand = NSButton(checkboxWithTitle: "Double-tap ⌘ to focus the bar", target: self, action: #selector(doubleCommandChanged(_:)))
+        doubleCommand.state = settings.doubleCommand ? .on : .off
         let autoCopy = NSButton(checkboxWithTitle: "Copy automatically when I pause", target: self, action: #selector(autoCopyChanged(_:)))
         autoCopy.state = settings.autoCopy ? .on : .off
         let paste = NSButton(checkboxWithTitle: "Enter pastes into the app I was typing in", target: self, action: #selector(pasteChanged(_:)))
@@ -108,6 +110,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
         let grid = NSGridView(views: [
             [label("Show / hide bar:"), bar],
+            [NSGridCell.emptyContentView, doubleCommand],
             [label("Convert selected text:"), selection],
             [label("Pause before copying:"), pauseRow],
             [NSGridCell.emptyContentView, autoCopy],
@@ -121,7 +124,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         grid.columnSpacing = 10
 
         let note = NSTextField(wrappingLabelWithString:
-            "Accessibility is needed for “Enter pastes” and “Convert selected text”. After rebuilding the app you may need to switch it off and on again there.")
+            "Accessibility is needed for double-tap ⌘, “Enter pastes” and “Convert selected text”. After rebuilding the app you may need to switch it off and on again there.")
         note.font = .systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
 
@@ -155,6 +158,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     @objc private func pauseChanged(_ s: NSSlider) {
         settings.pauseDelay = (s.doubleValue * 10).rounded() / 10
         refresh()
+    }
+    @objc private func doubleCommandChanged(_ b: NSButton) {
+        settings.doubleCommand = b.state == .on
+        if settings.doubleCommand { Keyboard.ensureTrusted() }
     }
     @objc private func autoCopyChanged(_ b: NSButton) { settings.autoCopy = b.state == .on }
     @objc private func pasteChanged(_ b: NSButton) {

@@ -7,6 +7,7 @@ Type `ana 3ayz a5rog enaharda`, pause, and `أنا عايز أخرج انهار�
 ## Features
 
 - **Floating bar, anywhere:** `⌥Space` shows or hides it over any app, on every Space, even in full screen.
+- **Double-tap ⌘ to focus:** tap Command twice to jump straight into the bar from wherever you are.
 - **Auto-copy:** the Arabic is copied as soon as you pause typing (0.6s by default).
 - **Enter pastes:** press `↩` and the Arabic is pasted straight into the app you were typing in.
 - **Alternatives:** up to 5 spellings for each word. Click any Arabic word, or press `⌘1`–`⌘5` for the last one.
@@ -61,7 +62,8 @@ cd FrancoBar
 
 ### Accessibility permission
 
-“Enter pastes” and “Convert selected text” send ⌘C / ⌘V for you, which macOS only allows after you grant FrancoBar
+Double-tap ⌘ needs to watch the Command key, and “Enter pastes” and “Convert selected text” send ⌘C / ⌘V for you.
+macOS only allows these after you grant FrancoBar
 **Accessibility** access (System Settings → Privacy & Security → Accessibility). The rest of the app works without it.
 
 The app is signed locally (ad-hoc), so after updating or rebuilding you may need to switch FrancoBar off and on again in that list.

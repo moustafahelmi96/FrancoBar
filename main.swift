@@ -2,12 +2,13 @@ import AppKit
 import Carbon.HIToolbox
 
 // FrancoBar: a floating bar that turns Franco (Arabizi) into Arabic.
-// ⌥Space toggles the bar, ⌥⇧Space converts selected text in any app (both changeable in Settings).
+// ⌥Space toggles the bar, ⌘⌘ (double-tap Command) focuses it, ⌥⇧Space converts selected text in any app.
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let bar = BarController()
     lazy var settingsWindow = SettingsWindowController()
     var statusItem: NSStatusItem!
+    var doubleTap: DoubleCommandTap!
     let menu = NSMenu()
     let historyMenu = NSMenu()
 
@@ -20,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         Settings.shared.onShortcutsChanged = { [weak self] in self?.registerHotKeys() }
         registerHotKeys()
+        doubleTap = DoubleCommandTap { [weak self] in self?.bar.show() }
+        if Settings.shared.doubleCommand { Keyboard.ensureTrusted() }
         bar.show()
     }
 
@@ -76,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let s = Settings.shared
         add(m, "Show / Hide Bar   \(s.barShortcut.display)", #selector(toggleBar))
+        if s.doubleCommand { add(m, "Focus Bar   ⌘⌘", #selector(focusBar)) }
         add(m, "Convert Selected Text   \(s.selectionShortcut.display)", #selector(convertSelectionItem))
         let h = m.addItem(withTitle: "History", action: nil, keyEquivalent: "")
         h.submenu = historyMenu
@@ -95,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func toggleBar() { bar.toggle() }
+    @objc func focusBar() { bar.show() }
     @objc func convertSelectionItem() { convertSelection() }
     @objc func openSettings() { settingsWindow.present() }
     @objc func toggleLogin() { LoginItem.set(!LoginItem.enabled) }
