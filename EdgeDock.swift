@@ -149,7 +149,8 @@ final class TabView: NSView {
         case .top: shape.size.height += r
         case .bottom: shape.origin.y -= r; shape.size.height += r
         }
-        NSColor.controlAccentColor.withAlphaComponent(hovering ? 1 : 0.7).setFill()
-        NSBezierPath(roundedRect: shape, xRadius: r, yRadius: r).fill()
+        let vertical = edge == .left || edge == .right
+        NSGraphicsContext.current?.cgContext.setAlpha(hovering ? 1 : 0.75)
+        Brand.gradient.draw(in: NSBezierPath(roundedRect: shape, xRadius: r, yRadius: r), angle: vertical ? -90 : 0)
     }
 }

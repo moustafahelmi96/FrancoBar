@@ -8,7 +8,7 @@ final class Panel: NSPanel {
 /// FrancoBar remembers that choice.
 final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     let panel = Panel(contentRect: NSRect(x: 0, y: 0, width: 520, height: 100),
-                      styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+                      styleMask: [.borderless, .nonactivatingPanel],
                       backing: .buffered, defer: false)
     private let input = NSTextField()
     private let output = NSTextView()
@@ -27,24 +27,59 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         super.init()
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
-        [.closeButton, .miniaturizeButton, .zoomButton].forEach { panel.standardWindowButton($0)?.isHidden = true }
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.appearance = NSAppearance(named: .darkAqua)
 
-        let bg = NSVisualEffectView()
-        bg.material = .hudWindow
-        bg.state = .active
-        bg.blendingMode = .behindWindow
-        panel.contentView = bg
+        // Rounded glass card with a faint violet tint and a hairline border.
+        let card = NSView()
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 16
+        card.layer?.masksToBounds = true
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = NSColor.white.withAlphaComponent(0.10).cgColor
+        panel.contentView = card
 
-        input.placeholderString = "ekteb franco… (e.g. ana 3ayz a5rog)"
-        input.font = .systemFont(ofSize: 15)
-        input.bezelStyle = .roundedBezel
+        let glass = NSVisualEffectView()
+        glass.material = .hudWindow
+        glass.state = .active
+        glass.blendingMode = .behindWindow
+        let tint = NSView()
+        tint.wantsLayer = true
+        let tintLayer = CAGradientLayer()
+        tintLayer.colors = [Brand.violet.withAlphaComponent(0.16).cgColor, Brand.cyan.withAlphaComponent(0.04).cgColor]
+        tintLayer.startPoint = CGPoint(x: 1, y: 0)
+        tintLayer.endPoint = CGPoint(x: 0, y: 1)
+        tint.layer = tintLayer
+        for v in [glass, tint] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            card.addSubview(v)
+            NSLayoutConstraint.activate([
+                v.topAnchor.constraint(equalTo: card.topAnchor), v.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+                v.leadingAnchor.constraint(equalTo: card.leadingAnchor), v.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            ])
+        }
+
+        let icon = NSImageView(image: NSApp.applicationIconImage)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        NSLayoutConstraint.activate([icon.widthAnchor.constraint(equalToConstant: 26), icon.heightAnchor.constraint(equalToConstant: 26)])
+
+        input.placeholderAttributedString = NSAttributedString(string: "ekteb franco…  ana 3ayz a5rog", attributes: [
+            .font: NSFont.systemFont(ofSize: 17), .foregroundColor: NSColor.white.withAlphaComponent(0.30),
+        ])
+        input.font = .systemFont(ofSize: 17, weight: .medium)
+        input.textColor = .white
+        input.isBordered = false
+        input.drawsBackground = false
         input.focusRingType = .none
+        input.cell?.isScrollable = true
         input.delegate = self
+        let inputRow = NSStackView(views: [icon, input])
+        inputRow.spacing = 10
 
         output.isEditable = false
         output.isSelectable = true
@@ -54,41 +89,45 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         output.textContainer?.lineFragmentPadding = 0
         output.textContainer?.widthTracksTextView = true
         output.isVerticallyResizable = false
-        output.linkTextAttributes = [.foregroundColor: NSColor.labelColor, .cursor: NSCursor.pointingHand]
+        output.linkTextAttributes = [.foregroundColor: NSColor.white, .cursor: NSCursor.pointingHand]
 
-        status.font = .systemFont(ofSize: 10)
-        status.textColor = .secondaryLabelColor
+        status.font = .systemFont(ofSize: 11, weight: .medium)
+        status.textColor = NSColor.white.withAlphaComponent(0.4)
         status.lineBreakMode = .byTruncatingTail
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         alternatives.orientation = .horizontal
-        alternatives.spacing = 2
+        alternatives.spacing = 6
         alternatives.setContentHuggingPriority(.required, for: .horizontal)
 
+        let line = GradientLine()
+        line.alphaValue = 0.7
         let bottom = NSStackView(views: [status, alternatives])
         bottom.distribution = .fill
-        let stack = NSStackView(views: [input, output, bottom])
+        let stack = NSStackView(views: [inputRow, line, output, bottom])
         stack.orientation = .vertical
-        stack.spacing = 6
-        stack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 8, right: 12)
+        stack.spacing = 10
+        stack.setCustomSpacing(12, after: line)
+        stack.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 12, right: 16)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        bg.addSubview(stack)
+        card.addSubview(stack)
 
-        outputHeight = output.heightAnchor.constraint(equalToConstant: 24)
+        outputHeight = output.heightAnchor.constraint(equalToConstant: 30)
         NSLayoutConstraint.activate([
-            bg.widthAnchor.constraint(equalToConstant: 520),
-            stack.topAnchor.constraint(equalTo: bg.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bg.bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: bg.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: bg.trailingAnchor),
-            input.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24),
-            output.widthAnchor.constraint(equalTo: input.widthAnchor),
-            bottom.widthAnchor.constraint(equalTo: input.widthAnchor),
+            card.widthAnchor.constraint(equalToConstant: 540),
+            stack.topAnchor.constraint(equalTo: card.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            inputRow.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32),
+            line.widthAnchor.constraint(equalTo: inputRow.widthAnchor),
+            output.widthAnchor.constraint(equalTo: inputRow.widthAnchor),
+            bottom.widthAnchor.constraint(equalTo: inputRow.widthAnchor),
             outputHeight,
         ])
 
         if let f = NSScreen.main?.visibleFrame {
-            panel.setFrameOrigin(NSPoint(x: f.midX - 260, y: f.maxY - 160))
+            panel.setFrameOrigin(NSPoint(x: f.midX - 270, y: f.maxY - 180))
         }
 
         dock = EdgeDock(panel: panel)
@@ -137,11 +176,11 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
 
     func controlTextDidChange(_ n: Notification) {
         debounce?.invalidate()
-        status.stringValue = ""
+        setStatus("")
         debounce = .scheduledTimer(withTimeInterval: Settings.shared.pauseDelay, repeats: false) { [weak self] _ in
             self?.update { c in
                 guard let self, let c else { return }
-                if Settings.shared.autoCopy { self.copy(c) } else { self.status.stringValue = "↩ to copy" }
+                if Settings.shared.autoCopy { self.copy(c) } else { self.setStatus("↩ to copy") }
             }
         }
     }
@@ -192,7 +231,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private func copy(_ c: Conversion) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(c.text, forType: .string)
-        status.stringValue = c.offline ? "✓ copied · offline" : "✓ copied"
+        setStatus(c.offline ? "✓ Copied · offline" : "✓ Copied", color: Brand.green)
     }
 
     // MARK: output
@@ -202,14 +241,14 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func render() {
-        let font = NSFont.systemFont(ofSize: 19, weight: .medium)
+        let font = NSFont.systemFont(ofSize: 24, weight: .semibold)
         let para = NSMutableParagraphStyle()
         para.alignment = .right
         para.baseWritingDirection = .rightToLeft
         let s = NSMutableAttributedString()
         for (i, w) in (conversion?.words ?? []).enumerated() {
             s.append(NSAttributedString(string: w.leading, attributes: [.font: font]))
-            var attrs: [NSAttributedString.Key: Any] = [.font: font]
+            var attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.white]
             if !w.franco.isEmpty { attrs[.link] = "word:\(i)" }
             s.append(NSAttributedString(string: w.text, attributes: attrs))
         }
@@ -219,15 +258,13 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         alternatives.arrangedSubviews.forEach { $0.removeFromSuperview() }
         if let i = lastWordWithAlternatives, let w = conversion?.words[i] {
             for (n, cand) in w.candidates.prefix(5).enumerated() {
-                let b = NSButton(title: "⌘\(n + 1) \(cand)", target: self, action: #selector(alternativeClicked(_:)))
-                b.bezelStyle = .inline
-                b.controlSize = .small
-                b.font = .systemFont(ofSize: 11, weight: n == w.chosen ? .bold : .regular)
+                let b = Chip(key: n + 1, title: cand, target: self, action: #selector(alternativeClicked(_:)))
+                b.isChosen = n == w.chosen
                 b.tag = i * 10 + n
                 alternatives.addArrangedSubview(b)
             }
         }
-        if conversion == nil { status.stringValue = hint }
+        if conversion == nil { setStatus(hint) }
         fit()
     }
 
@@ -243,6 +280,12 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         f.size.height = content.fittingSize.height
         f.origin.y = top - f.height
         panel.setFrame(f, display: true)
+        panel.invalidateShadow()
+    }
+
+    private func setStatus(_ text: String, color: NSColor = NSColor.white.withAlphaComponent(0.4)) {
+        status.stringValue = text
+        status.textColor = color
     }
 
     // MARK: changing a word
@@ -260,7 +303,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         conversion = c
         render()
         if Settings.shared.autoCopy { copy(c) }
-        if !t.remember(c.words[i].franco, as: c.words[i].arabic) { status.stringValue = "⚠︎ dictionary.json has an error — not saved" }
+        if !t.remember(c.words[i].franco, as: c.words[i].arabic) { setStatus("⚠︎ dictionary.json has an error — not saved", color: .systemOrange) }
     }
 
     func textView(_ tv: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
@@ -313,7 +356,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         conversion = c
         render()
         if Settings.shared.autoCopy { copy(c) }
-        if !t.remember(c.words[i].franco, as: typed) { status.stringValue = "⚠︎ dictionary.json has an error — not saved" }
+        if !t.remember(c.words[i].franco, as: typed) { setStatus("⚠︎ dictionary.json has an error — not saved", color: .systemOrange) }
     }
 
     @objc private func forget(_ item: NSMenuItem) {

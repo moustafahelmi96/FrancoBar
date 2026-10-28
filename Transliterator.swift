@@ -1,9 +1,10 @@
-import Foundation
+import AppKit
 
 struct Word {
     var leading: String      // whitespace before the word, kept as typed
     var prefix: String       // punctuation around the word
     var franco: String       // lowercased lookup key, e.g. "enaharda"
+    var original: String     // as typed, e.g. "Install"
     var suffix: String
     var candidates: [String]
     var chosen = 0
@@ -20,8 +21,9 @@ struct Conversion {
     var text: String { words.map { $0.leading + $0.text }.joined() + trailing }
 }
 
-/// Franco → Arabic. Order per word: your saved words, then cached Google results,
-/// then Google Input Tools (5 candidates), then offline rules.
+/// Franco → Arabic. Order per word: your saved words, then English words kept as typed,
+/// then cached Google results, then Google Input Tools (5 candidates), then offline rules.
+/// The word as typed is always offered as the last alternative.
 final class Transliterator {
     static let shared = Transliterator()
 
@@ -77,9 +79,11 @@ final class Transliterator {
     func convert(_ text: String, completion: @escaping (Conversion) -> Void) {
         let (tokens, trailing) = Self.tokenize(text)
         var words = tokens.map { t in
-            Word(leading: t.leading, prefix: t.prefix, franco: t.core, suffix: t.suffix, candidates: candidates(for: t.core) ?? [])
+            Word(leading: t.leading, prefix: t.prefix, franco: t.core, original: t.original, suffix: t.suffix, candidates: [])
         }
-        let missing = Set(words.filter { $0.candidates.isEmpty && !$0.franco.isEmpty }.map(\.franco))
+        let missing = Set(words.map(\.franco).filter { f in
+            !f.isEmpty && !Self.isNumber(f) && dictionary[f] == nil && cache[f] == nil && !Self.conjunctions.contains(f)
+        })
         var fetched: [String: [String]?] = [:]
         let lock = NSLock()
         let group = DispatchGroup()
@@ -96,20 +100,49 @@ final class Transliterator {
                 if let v { self.cache[k] = v } else { offline = true }
             }
             if fetched.values.contains(where: { $0 != nil }) { Self.save(self.cache, to: self.cacheURL) }
-            for i in words.indices where words[i].candidates.isEmpty && !words[i].franco.isEmpty {
-                words[i].candidates = self.candidates(for: words[i].franco) ?? [Self.offline(words[i].franco)]
-            }
+            for i in words.indices { words[i].candidates = self.candidates(for: words[i]) }
             completion(Conversion(source: text, words: words, trailing: trailing, offline: offline))
         }
     }
 
-    private func candidates(for core: String) -> [String]? {
-        if core.isEmpty { return [] }
-        if core.allSatisfy(\.isNumber) && core.count > 1 { return [core] }
-        let cached = cache[core]
-        if let mine = dictionary[core] { return [mine] + (cached ?? []).filter { $0 != mine } }
-        if Self.conjunctions.contains(core) { return ["و"] }
-        return cached
+    private func candidates(for w: Word) -> [String] {
+        let f = w.franco
+        if f.isEmpty { return [] }
+        if Self.isNumber(f) { return [w.original] }
+        var list: [String] = []
+        if let mine = dictionary[f] { list.append(mine) }
+        else if Self.isEnglish(w.original) { list.append(w.original) }
+        if Self.conjunctions.contains(f) { list.append("و") }
+        if Self.articles.contains(f) { list.append("ال") } // left alone only before English: "el meeting" → ال meeting
+        list += cache[f] ?? []
+        if list.isEmpty { list.append(Self.offline(f)) }
+        list.append(w.original)
+        // A saved "keep in English" entry is stored lowercased; show it the way it was typed.
+        list = list.map { $0.lowercased() == f ? w.original : $0 }
+        var seen = Set<String>()
+        return list.filter { seen.insert($0).inserted }
+    }
+
+    private static func isNumber(_ f: String) -> Bool { f.count > 1 && f.allSatisfy(\.isNumber) }
+
+    // MARK: English detection
+
+    /// Common Franco words the English spell checker would otherwise accept (law, mesh, bas…).
+    static let francoWords: Set<String> = [
+        "ana", "enta", "enty", "enti", "inta", "anta", "howa", "hwa", "heya", "hya", "e7na", "ehna", "homa", "ento",
+        "law", "men", "mn", "mesh", "msh", "bas", "ya", "eh", "ah", "el", "il", "da", "de", "di", "do", "ma", "la",
+        "fe", "fi", "we", "wa", "w", "yalla", "aiwa", "aywa", "ahu", "aho", "ahy", "bet", "beit", "mama", "baba",
+        "tab", "hat", "bardo", "ely", "elly", "kan", "kont", "keda", "leh", "ala", "tayeb", "tyb", "lessa", "hena",
+        "khod", "abl", "kol", "kolo", "ba2a", "ba3d", "3la", "lel", "bel", "fel", "wel", "ya3ni", "yani", "sa7",
+    ]
+
+    static func isEnglish(_ word: String) -> Bool {
+        let lower = word.lowercased()
+        guard lower.count > 1, !lower.contains(where: { $0.isNumber || $0 == "'" }),
+              !francoWords.contains(lower) else { return false }
+        let miss = NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: "en", wrap: false,
+                                                       inSpellDocumentWithTag: 0, wordCount: nil)
+        return miss.location == NSNotFound
     }
 
     // MARK: Google Input Tools
@@ -133,7 +166,7 @@ final class Transliterator {
 
     // MARK: Tokenizing
 
-    struct Token { var leading = "", prefix = "", core = "", suffix = "" }
+    struct Token { var leading = "", prefix = "", core = "", original = "", suffix = "" }
 
     /// Written apart in Franco but attached in Arabic: "el beit" → البيت (merged before lookup),
     /// "w ana" → وأنا (و is glued to the next word).
@@ -157,9 +190,10 @@ final class Transliterator {
         var i = 0
         while i + 1 < tokens.count {
             let a = tokens[i], b = tokens[i + 1]
-            let joinable = a.suffix.isEmpty && b.prefix.isEmpty && !b.core.isEmpty && b.leading == " "
+            let joinable = a.suffix.isEmpty && b.prefix.isEmpty && !b.core.isEmpty && b.leading == " " && !isEnglish(b.original)
             if joinable && articles.contains(a.core) {
                 tokens[i + 1].core = a.core + b.core
+                tokens[i + 1].original = a.original + " " + b.original
                 tokens[i + 1].prefix = a.prefix
                 tokens[i + 1].leading = a.leading
                 tokens.remove(at: i)
@@ -176,9 +210,11 @@ final class Transliterator {
         guard let first = raw.firstIndex(where: isCore), let last = raw.lastIndex(where: isCore) else {
             return Token(leading: leading, prefix: punctuation(raw))
         }
+        let core = String(raw[first...last])
         return Token(leading: leading,
                      prefix: punctuation(String(raw[..<first])),
-                     core: String(raw[first...last]).lowercased(),
+                     core: core.lowercased(),
+                     original: core,
                      suffix: punctuation(String(raw[raw.index(after: last)...])))
     }
 

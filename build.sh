@@ -16,6 +16,15 @@ if [[ "$1" == release ]]; then
 else
   swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13" *.swift -o $BIN
 fi
+# App icon: icon/AppIcon.png (drawn by icon/make-icon.swift) → AppIcon.icns
+ICONSET=$(mktemp -d)/AppIcon.iconset
+mkdir -p $ICONSET $APP/Contents/Resources
+for s in 16 32 128 256 512; do
+  sips -z $s $s icon/AppIcon.png --out $ICONSET/icon_${s}x${s}.png >/dev/null
+  sips -z $((s * 2)) $((s * 2)) icon/AppIcon.png --out $ICONSET/icon_${s}x${s}@2x.png >/dev/null
+done
+iconutil -c icns $ICONSET -o $APP/Contents/Resources/AppIcon.icns
+rm -rf $(dirname $ICONSET)
 cat > $APP/Contents/Info.plist <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -23,9 +32,10 @@ cat > $APP/Contents/Info.plist <<PLIST
 <key>CFBundleName</key><string>FrancoBar</string>
 <key>CFBundleIdentifier</key><string>com.moustafahelmi96.francobar</string>
 <key>CFBundleExecutable</key><string>FrancoBar</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>2.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleShortVersionString</key><string>2.1</string>
+<key>CFBundleVersion</key><string>3</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 </dict></plist>
