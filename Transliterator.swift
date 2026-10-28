@@ -82,7 +82,7 @@ final class Transliterator {
             Word(leading: t.leading, prefix: t.prefix, franco: t.core, original: t.original, suffix: t.suffix, candidates: [])
         }
         let missing = Set(words.map(\.franco).filter { f in
-            !f.isEmpty && !Self.isNumber(f) && dictionary[f] == nil && cache[f] == nil && !Self.conjunctions.contains(f)
+            !f.isEmpty && !Self.isNumber(f) && dictionary[f] == nil && cache[f] == nil && Self.fixed[f] == nil
         })
         var fetched: [String: [String]?] = [:]
         let lock = NSLock()
@@ -112,8 +112,11 @@ final class Transliterator {
         var list: [String] = []
         if let mine = dictionary[f] { list.append(mine) }
         else if Self.isEnglish(w.original) { list.append(w.original) }
-        if Self.conjunctions.contains(f) { list.append("و") }
-        if Self.articles.contains(f) { list.append("ال") } // left alone only before English: "el meeting" → ال meeting
+        if let one = Self.fixed[f] { list.append(one) }
+        if let better = Self.preferred[f] { list.append(better) }
+        // Articles are left alone only before English: "el meeting" → ال meeting
+        if f == "el" || f == "il" { list.append("ال") }
+        if f == "lel" || f == "lil" { list.append("لل") }
         list += cache[f] ?? []
         if list.isEmpty { list.append(Self.offline(f)) }
         list.append(w.original)
@@ -123,26 +126,65 @@ final class Transliterator {
         return list.filter { seen.insert($0).inserted }
     }
 
-    private static func isNumber(_ f: String) -> Bool { f.count > 1 && f.allSatisfy(\.isNumber) }
+    /// "el sa3a 5": a number on its own is a number, not خ.
+    private static func isNumber(_ f: String) -> Bool { f.allSatisfy(\.isNumber) }
 
     // MARK: English detection
 
-    /// Common Franco words the English spell checker would otherwise accept (law, mesh, bas…).
+    /// Franco words of 5+ letters the English spell checker would otherwise accept.
     static let francoWords: Set<String> = [
-        "ana", "enta", "enty", "enti", "inta", "anta", "howa", "hwa", "heya", "hya", "e7na", "ehna", "homa", "ento",
-        "law", "men", "mn", "mesh", "msh", "bas", "ya", "eh", "ah", "el", "il", "da", "de", "di", "do", "ma", "la",
-        "fe", "fi", "we", "wa", "w", "yalla", "aiwa", "aywa", "ahu", "aho", "ahy", "bet", "beit", "mama", "baba",
-        "tab", "hat", "bardo", "ely", "elly", "kan", "kont", "keda", "leh", "ala", "tayeb", "tyb", "lessa", "hena",
-        "khod", "abl", "kol", "kolo", "ba2a", "ba3d", "3la", "lel", "bel", "fel", "wel", "ya3ni", "yani", "sa7",
+        "yalla", "bardo", "kont", "keda", "kida", "tayeb", "lessa", "wallah", "walla", "wallahi", "inshallah",
+        "habibi", "habiby", "fakes", "mashy", "begad", "lamma", "gamed", "kaman", "haram", "sharia", "madrasa",
+        "araby", "sheikh", "laban", "kofta", "kebab", "bared", "aywa", "aiwa", "yaany",
+    ]
+
+    /// Up to 4 letters, Franco and English collide all the time (dah, ahh, ya, bas, moot, mesh…),
+    /// so short words count as English only if they're on this list of everyday English.
+    static let shortEnglish: Set<String> = [
+        // 2–3 letters
+        "ok", "hi", "app", "bye", "the", "and", "for", "you", "are", "is", "it", "to", "of", "on", "in", "at", "my",
+        "me", "so", "up", "if", "or", "but", "not", "all", "can", "how", "why", "who", "our", "out", "now", "too",
+        "pc", "ai", "api", "ui", "ux", "cv", "pdf", "url", "web", "bug", "fix", "pr", "job", "gym", "car", "mac",
+        "ios", "git", "css", "sql", "aws", "ram", "cpu", "gpu", "usb", "tv", "dm", "vs", "hr", "ceo", "lol", "omg",
+        "btw", "eta", "faq", "id", "otp", "sms", "vpn", "yes", "new", "old", "big", "top", "hot", "max", "min",
+        "add", "get", "set", "run", "log", "box", "key", "tag", "map", "pin", "dev", "qa", "pm", "am", "kg", "km",
+        // 4 letters
+        "okay", "will", "just", "also", "with", "this", "that", "from", "have", "what", "when", "then", "more",
+        "need", "want", "know", "make", "take", "give", "keep", "find", "only", "your", "they", "them", "were",
+        "file", "code", "send", "link", "mail", "call", "task", "team", "test", "game", "plan", "chat",
+        "sale", "data", "user", "page", "site", "free", "done", "sure", "cool", "nice", "good", "fine", "best",
+        "work", "home", "time", "date", "week", "year", "list", "note", "edit", "save", "copy", "open", "post",
+        "like", "live", "show", "help", "info", "demo", "beta", "deal", "cash", "card", "bank", "shop", "food",
+        "menu", "room", "flat", "unit", "sign", "push", "pull", "wifi",
+        "asap", "zoom", "next", "last", "slot", "spot", "back", "full", "busy", "easy", "fast", "slow", "high",
+        "boss", "logo", "font", "icon", "view", "mode", "dark", "item", "cart", "ship", "fees", "rent", "tips",
+        "idea", "news", "trip", "club", "golf", "ball", "goal", "move", "stop", "play", "song", "film",
+        "deck", "ppt", "doc", "docs", "ipad", "repo", "main", "prod", "host", "port", "line", "text",
+    ]
+
+    /// Brands the spell checker doesn't know.
+    static let brands: Set<String> = [
+        "whatsapp", "instagram", "insta", "facebook", "youtube", "tiktok", "google", "gmail", "linkedin", "netflix",
+        "spotify", "uber", "careem", "telegram", "snapchat", "twitter", "github", "figma", "slack", "chatgpt",
+        "claude", "iphone", "android", "macbook", "airpods", "playstation", "zoom", "teams", "outlook", "excel",
     ]
 
     static func isEnglish(_ word: String) -> Bool {
+        guard word.count > 1, word.allSatisfy(\.isLetter) else { return false } // digits/apostrophes mean Franco (3, 7, 3')
+        // iPhone, API, macOS: capitals after the first letter are a strong English signal.
+        if word.dropFirst().contains(where: \.isUppercase) { return true }
         let lower = word.lowercased()
-        guard lower.count > 1, !lower.contains(where: { $0.isNumber || $0 == "'" }),
-              !francoWords.contains(lower) else { return false }
+        if brands.contains(lower) { return true }
+        if francoWords.contains(lower) || hasTripleLetter(lower) { return false } // ahhh, yaaa
+        if lower.count <= 4 { return shortEnglish.contains(lower) }
         let miss = NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: "en", wrap: false,
                                                        inSpellDocumentWithTag: 0, wordCount: nil)
         return miss.location == NSNotFound
+    }
+
+    private static func hasTripleLetter(_ s: String) -> Bool {
+        let c = Array(s)
+        return c.indices.dropFirst(2).contains { c[$0] == c[$0 - 1] && c[$0] == c[$0 - 2] }
     }
 
     // MARK: Google Input Tools
@@ -168,10 +210,24 @@ final class Transliterator {
 
     struct Token { var leading = "", prefix = "", core = "", original = "", suffix = "" }
 
-    /// Written apart in Franco but attached in Arabic: "el beit" → البيت (merged before lookup),
-    /// "w ana" → وأنا (و is glued to the next word).
-    static let articles: Set<String> = ["el", "il"]
-    static let conjunctions: Set<String> = ["w", "we"]
+    /// Written apart in Franco but attached in Arabic: "el beit" → البيت, "lel beit" → للبيت (merged before lookup),
+    /// "w ana" → وأنا, "b el 3arabi" → بالعربي (prefix glued to the next word).
+    static let articles: Set<String> = ["el", "il", "lel", "lil"]
+    static let prefixes: [String: String] = ["w": "و", "we": "و", "b": "ب", "l": "ل"]
+    /// Little words with one right answer, never looked up.
+    static let fixed: [String: String] = ["w": "و", "we": "و", "b": "ب", "l": "ل", "fi": "في"]
+    /// Everyday words where Google's first guess is wrong (kolo → قوله); its guesses stay as alternatives.
+    static let preferred: [String: String] = [
+        "kolo": "كله", "kollo": "كله", "kolha": "كلها", "kolohom": "كلهم", "kolena": "كلنا",
+        "abl": "قبل", "2abl": "قبل", "ba3d": "بعد", "3ala": "على",
+    ]
+    /// Contractions Google gets wrong when merged (felbeit → فلبية): split them first, "fel beit" → في البيت.
+    static let contractions: [String: [String]] = [
+        "fel": ["fi", "el"], "fil": ["fi", "el"], "fl": ["fi", "el"],
+        "wel": ["w", "el"], "wil": ["w", "el"],
+        "bel": ["b", "el"], "bil": ["b", "el"],
+        "3al": ["3ala", "el"],
+    ]
 
     static func tokenize(_ text: String) -> ([Token], String) {
         var tokens: [Token] = []
@@ -187,6 +243,14 @@ final class Transliterator {
         }
         flush()
 
+        tokens = tokens.flatMap { t -> [Token] in
+            guard let parts = contractions[t.core] else { return [t] }
+            var first = t, second = t
+            first.core = parts[0]; first.original = parts[0]; first.suffix = ""
+            second.core = parts[1]; second.original = parts[1]; second.prefix = ""; second.leading = " "
+            return [first, second]
+        }
+
         var i = 0
         while i + 1 < tokens.count {
             let a = tokens[i], b = tokens[i + 1]
@@ -199,7 +263,9 @@ final class Transliterator {
                 tokens.remove(at: i)
                 continue
             }
-            if joinable && conjunctions.contains(a.core) { tokens[i + 1].leading = "" }
+            // A prefix also attaches to an English word's article: "w el zoom" → وال zoom.
+            let attaches = a.suffix.isEmpty && b.prefix.isEmpty && b.leading == " " && (!isEnglish(b.original) || articles.contains(b.core))
+            if attaches && prefixes[a.core] != nil { tokens[i + 1].leading = "" }
             i += 1
         }
         return (tokens, space)

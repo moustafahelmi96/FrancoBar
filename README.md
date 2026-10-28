@@ -21,7 +21,7 @@ Type `ana 3ayz a5rog enaharda`, pause, and `أنا عايز أخرج انهار�
 - **Works offline:** words it has seen before are cached; new words fall back to built-in rules.
 
 English words stay English: `ana 3ayz a3mel install lel app` → `أنا عايز أعمل install لل app`.
-Particles are joined the Arabic way: `w el beit` → `والبيت`.
+Particles are joined the Arabic way: `w el beit` → `والبيت`, `fel beit` → `في البيت`, `bel 3arabi` → `بالعربي`.
 
 ## Install
 
@@ -78,8 +78,10 @@ The release zip is signed ad-hoc, so after updating you may need to remove Franc
 For each word, in order:
 
 1. Your own words (`~/Library/Application Support/FrancoBar/dictionary.json`, also under **ع → Edit My Words…**)
-2. English words, kept as typed. Detected with the macOS English spell checker, except for common Franco words
-   that are also English (`law`, `mesh`, `bas`, `ya`…). The word as typed is always one of the alternatives, and your pick is remembered.
+2. English words, kept as typed: words with inner capitals (`iPhone`, `API`), common brands (`whatsapp`), and words the
+   macOS English spell checker knows. Words of 4 letters or less only count from a list of everyday English (`app`, `file`,
+   `team`…), since `dah`, `ahh`, `moot`, `mesh` are Franco; a list of longer Franco words (`yalla`, `habibi`…) is excluded too.
+   The word as typed is always one of the alternatives, and your pick is remembered.
 3. Results cached from earlier lookups (`cache.json` in the same folder)
 4. Google Input Tools (`inputtools.google.com`)
 5. Offline rules
