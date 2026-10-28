@@ -42,6 +42,6 @@ if [[ "$1" == install ]]; then
   while pgrep -x FrancoBar >/dev/null; do sleep 0.1; done
   rm -rf /Applications/$APP
   cp -R $APP /Applications/
-  open /Applications/$APP
+  open /Applications/$APP 2>/dev/null || { sleep 1; open /Applications/$APP; }
   echo "Installed to /Applications and launched"
 fi

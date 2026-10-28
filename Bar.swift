@@ -20,6 +20,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private var requestID = 0
     private var previousApp: NSRunningApplication?
     private let t = Transliterator.shared
+    private var dock: EdgeDock!
     private let hint = "↩ paste · esc hide · click a word to change it"
 
     override init() {
@@ -90,6 +91,10 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
             panel.setFrameOrigin(NSPoint(x: f.midX - 260, y: f.maxY - 160))
         }
 
+        dock = EdgeDock(panel: panel)
+        dock.onTuck = { [weak self] in self?.hide() }
+        dock.onTabClick = { [weak self] in self?.show() }
+
         // ⌘1–⌘5 pick an alternative for the last word.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self, e.window === self.panel,
@@ -111,6 +116,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     func show() {
         if let app = NSWorkspace.shared.frontmostApplication, app != .current { previousApp = app }
         t.reloadDictionary()
+        dock.barWillShow()
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(input)
         input.currentEditor()?.selectAll(nil)
@@ -122,6 +128,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
             Settings.shared.addHistory(c.text)
         }
         panel.orderOut(nil)
+        dock.barDidHide()
         // Only happens after our own alert/menu activated us; hand focus back.
         if NSApp.isActive { previousApp?.activate(options: []) }
     }

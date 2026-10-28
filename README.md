@@ -7,6 +7,7 @@ Type `ana 3ayz a5rog enaharda`, pause, and `أنا عايز أخرج انهار�
 ## Features
 
 - **Floating bar, anywhere:** `⌥Space` shows or hides it over any app, on every Space, even in full screen.
+- **Tuck it away:** drag the bar against any screen edge and it hides into a small tab there. Click the tab to bring it back; drag it away from the edge to undock.
 - **Double-tap ⌘ to focus:** tap Command twice to jump straight into the bar from wherever you are.
 - **Auto-copy:** the Arabic is copied as soon as you pause typing (0.6s by default).
 - **Enter pastes:** press `↩` and the Arabic is pasted straight into the app you were typing in.
