@@ -55,6 +55,8 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         tintLayer.startPoint = CGPoint(x: 1, y: 0)
         tintLayer.endPoint = CGPoint(x: 0, y: 1)
         tint.layer = tintLayer
+        // Solid dark base under the tint so the bar stays dark (and readable) over white pages.
+        tintLayer.backgroundColor = NSColor(srgbRed: 0.06, green: 0.06, blue: 0.10, alpha: 0.72).cgColor
         for v in [glass, tint] {
             v.translatesAutoresizingMaskIntoConstraints = false
             card.addSubview(v)
@@ -95,6 +97,7 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         status.textColor = NSColor.white.withAlphaComponent(0.4)
         status.lineBreakMode = .byTruncatingTail
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        status.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(statusClicked)))
 
         alternatives.orientation = .horizontal
         alternatives.spacing = 6
@@ -203,10 +206,14 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
             guard let self else { return }
             guard let c else { return self.hide() }
             self.copy(c)
-            self.hide()
-            if Settings.shared.pasteOnEnter, Keyboard.ensureTrusted() {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { Keyboard.command(9) } // kVK_ANSI_V
+            guard Settings.shared.pasteOnEnter else { return self.hide() }
+            guard Keyboard.ensureTrusted() else {
+                // Don't hide silently: say why nothing was pasted.
+                self.setStatus("⚠︎ Copied · Allow Accessibility to paste ›", color: .systemOrange, action: Keyboard.openAccessibilitySettings)
+                return
             }
+            self.hide()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { Keyboard.command(9) } // kVK_ANSI_V
         }
         if let c = conversion, c.source == input.stringValue { done(c) } else { update(then: done) }
     }
@@ -283,10 +290,16 @@ final class BarController: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         panel.invalidateShadow()
     }
 
-    private func setStatus(_ text: String, color: NSColor = NSColor.white.withAlphaComponent(0.4)) {
+    private var statusAction: (() -> Void)?
+
+    /// `action` makes the status clickable (e.g. to open Accessibility settings).
+    private func setStatus(_ text: String, color: NSColor = NSColor.white.withAlphaComponent(0.4), action: (() -> Void)? = nil) {
         status.stringValue = text
         status.textColor = color
+        statusAction = action
     }
+
+    @objc private func statusClicked() { statusAction?() }
 
     // MARK: changing a word
 

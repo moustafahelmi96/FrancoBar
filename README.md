@@ -70,7 +70,8 @@ Double-tap ⌘ needs to watch the Command key, and “Enter pastes” and “Con
 macOS only allows these after you grant FrancoBar
 **Accessibility** access (System Settings → Privacy & Security → Accessibility). The rest of the app works without it.
 
-The app is signed locally (ad-hoc), so after updating or rebuilding you may need to switch FrancoBar off and on again in that list.
+The release zip is signed ad-hoc, so after updating you may need to remove FrancoBar from that list (–) and add it again.
+`./build.sh install` signs with your Apple Development certificate if you have one, so the permission survives rebuilds.
 
 ## How conversion works
 

@@ -40,7 +40,13 @@ cat > $APP/Contents/Info.plist <<PLIST
 <key>LSUIElement</key><true/>
 </dict></plist>
 PLIST
-codesign --force -s - $APP
+# Accessibility permission is tied to the code signature. Ad-hoc signatures change with every build,
+# so for local installs use an Apple Development certificate when there is one: the permission then
+# survives rebuilds. Releases stay ad-hoc. Override with SIGN_ID="..." ./build.sh install
+if [[ "$1" == install && -z "$SIGN_ID" ]]; then
+  SIGN_ID=$(security find-identity -v -p codesigning | grep "Apple Development" | grep -v REVOKED | head -1 | awk '{print $2}')
+fi
+codesign --force -s "${SIGN_ID:--}" $APP
 echo "Built $PWD/$APP"
 if [[ "$1" == release ]]; then
   rm -f FrancoBar.zip
